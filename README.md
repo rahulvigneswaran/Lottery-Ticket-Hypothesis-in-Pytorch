@@ -118,6 +118,8 @@ Lottery-Ticket-Hypothesis-in-Pytorch
 ## Interesting papers that are related to Lottery Ticket Hypothesis which I enjoyed 
 - [Deconstructing Lottery Tickets: Zeros, Signs, and the Supermask](https://eng.uber.com/deconstructing-lottery-tickets/)
 
+## Acknowledgement 
+Parts of code were borrowed from [ktkth5](https://github.com/ktkth5/lottery-ticket-hyopothesis).
 
 ## Issue / Want to Contribute ? :
 Open a new issue or do a pull request incase you are facing any difficulty with the code base or if you want to contribute to it.
