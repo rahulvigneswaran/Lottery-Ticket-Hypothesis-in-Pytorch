@@ -8,7 +8,7 @@ This repository contains a **Pytorch** implementation of the paper [The Lottery 
 pip3 install -r requirements.txt
 ```
 ## How to run the code ? 
-### Using datasets/architectures included with this repository
+### Using datasets/architectures included with this repository :
 ```
 python3 main.py --prune_type=lt --arch_type=fc1 --dataset=mnist --prune_percent=10 --prune_iterations=35
 ```
@@ -37,7 +37,7 @@ python3 main.py --prune_type=lt --arch_type=fc1 --dataset=mnist --prune_percent=
 	- Default : `1`
 - `--gpu`	: Decide Which GPU the program should use 
 	- Default : `0`
-### Using datasets/architectures that are not included with this repository
+### Using datasets/architectures that are not included with this repository :
 - Adding a new architecture :
 	- For example, if you want to add an architecture named `new_model` with `mnist` dataset compatibility. 
 		- Go to `/archs/mnist/` directory and create a file `new_model.py`.
@@ -61,7 +61,12 @@ python3 main.py --prune_type=lt --arch_type=fc1 --dataset=mnist --prune_percent=
         		traindataset = datasets.new_dataset('../data', train=True, download=True, transform=transform)
         		testdataset = datasets.new_dataset('../data', train=False, transform=transform)from archs.new_dataset import fc1
 			``` 
-			**Note** that as of now, you can add dataset that are [natively available in Pytorch](https://pytorch.org/docs/stable/torchvision/datasets.html). 
+			**Note** that as of now, you can only add dataset that are [natively available in Pytorch](https://pytorch.org/docs/stable/torchvision/datasets.html). 
+
+## How to combine the plots of various `prune_type` ?
+- Go to `combine_plots.py` and add/remove the datasets/archs who's combined plot you want to generate (*Assuming that you have already executed the `main.py` code for those dataset/archs and produced the weights*).
+- Run `python3 combine_plots.py`.
+- Go to `/plots/lt/combined_plots/` to see the graphs.
 
 Kindly [raise an issue](https://github.com/rahulvigneswaran/Lottery-Ticket-Hypothesis-in-Pytorch/issues) if you have any problem with the instructions. 
 

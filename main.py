@@ -1,4 +1,4 @@
-#ANCHOR Importing Libraries
+# Importing Libraries
 import argparse
 import copy
 import os
@@ -19,27 +19,21 @@ import seaborn as sns
 import torch.nn.init as init
 import pickle
 
-#ANCHOR Custom Libraries
+# Custom Libraries
 import utils
 
-#ANCHOR Tensorboard initialization
+# Tensorboard initialization
 writer = SummaryWriter()
 
-#ANCHOR Plotting Style
+# Plotting Style
 sns.set_style('darkgrid')
 
-#ANCHOR Endless Dataloader
-#def cycle(iterable):
-#    while True:
-#        for x in iterable:
-#            yield x
-
-#ANCHOR Main
+# Main
 def main(args, ITE=0):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     reinit = True if args.prune_type=="reinit" else False
 
-    #ANCHOR Data Loader
+    # Data Loader
     transform=transforms.Compose([transforms.ToTensor(),transforms.Normalize((0.1307,), (0.3081,))])
     if args.dataset == "mnist":
         traindataset = datasets.MNIST('../data', train=True, download=True,transform=transform)
@@ -60,6 +54,8 @@ def main(args, ITE=0):
         traindataset = datasets.CIFAR100('../data', train=True, download=True,transform=transform)
         testdataset = datasets.CIFAR100('../data', train=False, transform=transform)   
         from archs.cifar100 import AlexNet, fc1, LeNet5, vgg, resnet  
+    
+    # If you want to add extra datasets paste here
 
     else:
         print("\nWrong Dataset choice \n")
@@ -69,7 +65,7 @@ def main(args, ITE=0):
     #train_loader = cycle(train_loader)
     test_loader = torch.utils.data.DataLoader(testdataset, batch_size=args.batch_size, shuffle=False, num_workers=0,drop_last=True)
     
-    #ANCHOR Importing Network Architecture
+    # Importing Network Architecture
     global model
     if args.arch_type == "fc1":
        model = fc1.fc1().to(device)
@@ -83,30 +79,31 @@ def main(args, ITE=0):
         model = resnet.resnet18().to(device)   
     elif args.arch_type == "densenet121":
         model = densenet.densenet121().to(device)   
+    # If you want to add extra model paste here
     else:
         print("\nWrong Model choice\n")
         exit()
 
-    #ANCHOR Weight Initialization
+    # Weight Initialization
     model.apply(weight_init)
 
-    #ANCHOR Copying and Saving Initial State
+    # Copying and Saving Initial State
     initial_state_dict = copy.deepcopy(model.state_dict())
     utils.checkdir(f"{os.getcwd()}/saves/{args.arch_type}/{args.dataset}/")
     torch.save(model, f"{os.getcwd()}/saves/{args.arch_type}/{args.dataset}/initial_state_dict_{args.prune_type}.pth.tar")
 
-    #ANCHOR Making Initial Mask
+    # Making Initial Mask
     make_mask(model)
 
-    #ANCHOR Optimizer and Loss
+    # Optimizer and Loss
     optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss() # Default was F.nll_loss
 
-    #ANCHOR Layer Looper
+    # Layer Looper
     for name, param in model.named_parameters():
         print(name, param.size())
 
-    #ANCHOR Pruning
+    # Pruning
     # NOTE First Pruning Iteration is of No Compression
     bestacc = 0.0
     best_accuracy = 0
@@ -150,29 +147,29 @@ def main(args, ITE=0):
             optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
         print(f"\n--- Pruning Level [{ITE}:{_ite}/{ITERATION}]: ---")
 
-        #ANCHOR Print the table of Nonzeros in each layer
+        # Print the table of Nonzeros in each layer
         comp1 = utils.print_nonzeros(model)
         comp[_ite] = comp1
         pbar = tqdm(range(args.end_iter))
 
         for iter_ in pbar:
 
-            #ANCHOR Frequency for Testing
+            # Frequency for Testing
             if iter_ % args.valid_freq == 0:
                 accuracy = test(model, test_loader, criterion)
 
-                #ANCHOR Save Weights
+                # Save Weights
                 if accuracy > best_accuracy:
                     best_accuracy = accuracy
                     utils.checkdir(f"{os.getcwd()}/saves/{args.arch_type}/{args.dataset}/")
                     torch.save(model,f"{os.getcwd()}/saves/{args.arch_type}/{args.dataset}/{_ite}_model_{args.prune_type}.pth.tar")
 
-            #ANCHOR Training
+            # Training
             loss = train(model, train_loader, optimizer, criterion)
             all_loss[iter_] = loss
             all_accuracy[iter_] = accuracy
             
-            #ANCHOR Frequency for Printing Accuracy and Loss
+            # Frequency for Printing Accuracy and Loss
             if iter_ % args.print_freq == 0:
                 pbar.set_description(
                     f'Train Epoch: {iter_}/{args.end_iter} Loss: {loss:.6f} Accuracy: {accuracy:.2f}% Best Accuracy: {best_accuracy:.2f}%')       
@@ -180,7 +177,7 @@ def main(args, ITE=0):
         writer.add_scalar('Accuracy/test', best_accuracy, comp1)
         bestacc[_ite]=best_accuracy
 
-        #ANCHOR Plotting Loss (Training), Accuracy (Testing), Iteration Curve
+        # Plotting Loss (Training), Accuracy (Testing), Iteration Curve
         #NOTE Loss is computed for every iteration while Accuracy is computed only for every {args.valid_freq} iterations. Therefore Accuracy saved is constant during the uncomputed iterations.
         #NOTE Normalized the accuracy to [0,100] for ease of plotting.
         plt.plot(np.arange(1,(args.end_iter)+1), 100*(all_loss - np.min(all_loss))/np.ptp(all_loss).astype(float), c="blue", label="Loss") 
@@ -194,27 +191,27 @@ def main(args, ITE=0):
         plt.savefig(f"{os.getcwd()}/plots/lt/{args.arch_type}/{args.dataset}/{args.prune_type}_LossVsAccuracy_{comp1}.png", dpi=1200) 
         plt.close()
 
-        #ANCHOR Dump Plot values
+        # Dump Plot values
         utils.checkdir(f"{os.getcwd()}/dumps/lt/{args.arch_type}/{args.dataset}/")
         all_loss.dump(f"{os.getcwd()}/dumps/lt/{args.arch_type}/{args.dataset}/{args.prune_type}_all_loss_{comp1}.dat")
         all_accuracy.dump(f"{os.getcwd()}/dumps/lt/{args.arch_type}/{args.dataset}/{args.prune_type}_all_accuracy_{comp1}.dat")
         
-        #ANCHOR Dumping mask
+        # Dumping mask
         utils.checkdir(f"{os.getcwd()}/dumps/lt/{args.arch_type}/{args.dataset}/")
         with open(f"{os.getcwd()}/dumps/lt/{args.arch_type}/{args.dataset}/{args.prune_type}_mask_{comp1}.pkl", 'wb') as fp:
             pickle.dump(mask, fp)
         
-        #ANCHOR Making variables into 0
+        # Making variables into 0
         best_accuracy = 0
         all_loss = np.zeros(args.end_iter,float)
         all_accuracy = np.zeros(args.end_iter,float)
 
-    #ANCHOR Dumping Values for Plotting
+    # Dumping Values for Plotting
     utils.checkdir(f"{os.getcwd()}/dumps/lt/{args.arch_type}/{args.dataset}/")
     comp.dump(f"{os.getcwd()}/dumps/lt/{args.arch_type}/{args.dataset}/{args.prune_type}_compression.dat")
     bestacc.dump(f"{os.getcwd()}/dumps/lt/{args.arch_type}/{args.dataset}/{args.prune_type}_bestaccuracy.dat")
 
-    #ANCHOR Plotting
+    # Plotting
     a = np.arange(args.prune_iterations)
     plt.plot(a, bestacc, c="blue", label="Winning tickets") 
     plt.title(f"Test Accuracy vs Unpruned Weights Percentage ({args.dataset},{args.arch_type})") 
@@ -228,7 +225,7 @@ def main(args, ITE=0):
     plt.savefig(f"{os.getcwd()}/plots/lt/{args.arch_type}/{args.dataset}/{args.prune_type}_AccuracyVsWeights.png", dpi=1200) 
     plt.close()                    
    
-#ANCHOR Function for Training
+# Function for Training
 def train(model, train_loader, optimizer, criterion):
     EPS = 1e-6
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -241,7 +238,7 @@ def train(model, train_loader, optimizer, criterion):
         train_loss = criterion(output, targets)
         train_loss.backward()
 
-        #ANCHOR Freezing Pruned weights by making their gradients Zero
+        # Freezing Pruned weights by making their gradients Zero
         for name, p in model.named_parameters():
             if 'weight' in name:
                 tensor = p.data.cpu().numpy()
@@ -251,7 +248,7 @@ def train(model, train_loader, optimizer, criterion):
         optimizer.step()
     return train_loss.item()
 
-#ANCHOR Function for Testing
+# Function for Testing
 def test(model, test_loader, criterion):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
@@ -268,7 +265,7 @@ def test(model, test_loader, criterion):
         accuracy = 100. * correct / len(test_loader.dataset)
     return accuracy
 
-#ANCHOR Prune by Percentile module
+# Prune by Percentile module
 def prune_by_percentile(percent, resample=False, reinit=False,**kwargs):
         global step
         global mask
@@ -294,7 +291,7 @@ def prune_by_percentile(percent, resample=False, reinit=False,**kwargs):
                 step += 1
         step = 0
 
-#ANCHOR Function to make an empty mask of the same size as the model
+# Function to make an empty mask of the same size as the model
 def make_mask(model):
     global step
     global mask
@@ -324,7 +321,7 @@ def original_initialization(mask_temp, initial_state_dict):
             param.data = initial_state_dict[name]
     step = 0
 
-#ANCHOR Function for Initialization
+# Function for Initialization
 def weight_init(m):
     '''
     Usage:
@@ -398,7 +395,7 @@ if __name__=="__main__":
     #from gooey import Gooey
     #@Gooey      
     
-    #ANCHOR Arguement Parser
+    # Arguement Parser
     parser = argparse.ArgumentParser()
     parser.add_argument("--lr",default= 1.2e-3, type=float, help="Learning rate")
     parser.add_argument("--batch_size", default=60, type=int)
@@ -425,6 +422,6 @@ if __name__=="__main__":
     #FIXME resample
     resample = False
 
-    #ANCHOR Looping Entire process
+    # Looping Entire process
     #for i in range(0, 5):
     main(args, ITE=1)
